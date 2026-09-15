@@ -53,6 +53,20 @@ export async function getRecord<T>(storeName: StoreName, id: IDBValidKey): Promi
   });
 }
 
+export async function getAllRecords<T>(storeName: StoreName): Promise<T[]> {
+  const db = await openSemformDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, "readonly");
+    const request = transaction.objectStore(storeName).getAll();
+
+    request.onsuccess = () => resolve((request.result as T[]) ?? []);
+    request.onerror = () => reject(request.error ?? new Error("데이터 목록을 불러오지 못했습니다."));
+    transaction.oncomplete = () => db.close();
+    transaction.onerror = () => db.close();
+  });
+}
+
 export async function putRecord<T>(storeName: StoreName, value: T): Promise<void> {
   const db = await openSemformDB();
 
@@ -67,6 +81,24 @@ export async function putRecord<T>(storeName: StoreName, value: T): Promise<void
     transaction.onerror = () => {
       db.close();
       reject(transaction.error ?? new Error("데이터를 저장하지 못했습니다."));
+    };
+  });
+}
+
+export async function deleteRecord(storeName: StoreName, id: IDBValidKey): Promise<void> {
+  const db = await openSemformDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, "readwrite");
+    transaction.objectStore(storeName).delete(id);
+
+    transaction.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    transaction.onerror = () => {
+      db.close();
+      reject(transaction.error ?? new Error("데이터를 삭제하지 못했습니다."));
     };
   });
 }

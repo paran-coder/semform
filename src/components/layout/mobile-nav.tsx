@@ -17,6 +17,7 @@ export function MobileNav() {
   const clients = primaryNavigation[2];
   const settings = secondaryNavigation.find((item) => item.label === "설정")!;
   const items = [home, quotes, clients, settings];
+  const settingsActive = ["/settings", "/profile", "/pricing", "/terms"].some((href) => isActivePath(pathname, href));
 
   return (
     <nav className="mobile-nav" aria-label="모바일 메뉴">
@@ -40,7 +41,7 @@ export function MobileNav() {
         <span className="mobile-nav__icon">{items[2].icon}</span>
         <span>고객</span>
       </Link>
-      <Link className={`mobile-nav__item${isActivePath(pathname, items[3].href) ? " is-active" : ""}`} href={items[3].href}>
+      <Link className={`mobile-nav__item${settingsActive ? " is-active" : ""}`} href={items[3].href}>
         <span className="mobile-nav__icon">{items[3].icon}</span>
         <span>설정</span>
       </Link>

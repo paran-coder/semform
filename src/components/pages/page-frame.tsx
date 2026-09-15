@@ -17,7 +17,7 @@ export function PageFrame({
     <div className="standard-page">
       <header className="standard-topbar">
         <span className="standard-topbar__brand">SEMFORM</span>
-        <span className="standard-topbar__version">v0.2.0</span>
+        <span className="standard-topbar__version">v0.3.0</span>
       </header>
       <div className="standard-content">
         <div className="standard-heading">
