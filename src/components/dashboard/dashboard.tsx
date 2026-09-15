@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { PlusIcon } from "@/components/ui/icons";
 import { MonthlySummary } from "./monthly-summary";
 import { RecentQuotes } from "./recent-quotes";
@@ -20,9 +20,10 @@ export function Dashboard() {
             <h1 id="dashboard-title">견적을 만들어보세요.</h1>
             <p>자주 쓰는 단가와 조건을 불러와 빠르게 계산하고, 깔끔한 견적서로 정리합니다.</p>
           </div>
-          <Button className="dashboard-hero__cta" leadingIcon={<PlusIcon size={18} />} size="lg">
-            새 견적 만들기
-          </Button>
+          <Link className="sf-button sf-button--primary sf-button--lg dashboard-hero__cta" href="/quotes/new">
+            <span className="sf-button__icon"><PlusIcon size={18} /></span>
+            <span>새 견적 만들기</span>
+          </Link>
         </section>
 
         <MonthlySummary />
