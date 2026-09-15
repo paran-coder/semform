@@ -1,3 +1,4 @@
+import { APP_CONFIG } from "@/config/app";
 import type { ReactNode } from "react";
 
 export function PageFrame({
@@ -17,7 +18,7 @@ export function PageFrame({
     <div className="standard-page">
       <header className="standard-topbar">
         <span className="standard-topbar__brand">SEMFORM</span>
-        <span className="standard-topbar__version">v0.3.0</span>
+        <span className="standard-topbar__version">v{APP_CONFIG.version}</span>
       </header>
       <div className="standard-content">
         <div className="standard-heading">

@@ -1,11 +1,13 @@
-import { ComingSoonPage } from "@/components/pages/coming-soon";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageFrame } from "@/components/pages/page-frame";
+import { QuotesManager } from "@/components/quotes/quotes-manager";
 
 export default function QuotesPage() {
   return (
-    <ComingSoonPage
-      title="견적"
-      description="견적 목록, 검색, 복제, 버전 관리는 견적 기능 구현 단계에서 연결됩니다."
-      nextVersion="v0.5.0"
-    />
+    <AppShell>
+      <PageFrame eyebrow="견적" title="견적을 한곳에서 관리하세요." description="저장한 견적을 고객, 프로젝트명, 견적번호로 찾고 상세 내용을 다시 확인할 수 있습니다.">
+        <QuotesManager />
+      </PageFrame>
+    </AppShell>
   );
 }

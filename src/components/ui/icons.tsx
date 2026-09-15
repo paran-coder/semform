@@ -108,3 +108,40 @@ export function ArrowRightIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+export function SearchIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="11" cy="11" r="5.8" stroke="currentColor" strokeWidth="1.7" />
+      <path d="m15.5 15.5 4 4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+    </IconBase>
+  );
+}
+
+export function MoreIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="6" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="18" cy="12" r="1.2" fill="currentColor" />
+    </IconBase>
+  );
+}
+
+export function BuildingIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M5 20V5.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1V20M15 9h3a1 1 0 0 1 1 1v10M3 20h18" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+      <path d="M8 8h4M8 11.5h4M8 15h4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+    </IconBase>
+  );
+}
+
+export function CopyIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="8" y="8" width="10" height="10" rx="2" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M15 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+    </IconBase>
+  );
+}

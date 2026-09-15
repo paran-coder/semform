@@ -8,6 +8,7 @@ import { Wordmark } from "./wordmark";
 
 function isActivePath(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
+  if (href === "/quotes" && pathname === "/quotes/new") return false;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

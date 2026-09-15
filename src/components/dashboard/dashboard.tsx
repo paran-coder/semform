@@ -9,7 +9,7 @@ export function Dashboard() {
       <header className="dashboard-topbar">
         <div>
           <span className="dashboard-topbar__brand">SEMFORM</span>
-          <span className="dashboard-topbar__date">2026.09.15</span>
+          <span className="dashboard-topbar__date">SEMFORM v0.5</span>
         </div>
       </header>
 
