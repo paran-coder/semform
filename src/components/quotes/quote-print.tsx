@@ -62,7 +62,9 @@ export function QuotePrint() {
   useEffect(() => {
     if (!quote?.quoteNumber) return;
     document.documentElement.style.setProperty("--sf-print-quote-number", `"${quote.quoteNumber}"`);
-    return () => document.documentElement.style.removeProperty("--sf-print-quote-number");
+    return () => {
+      document.documentElement.style.removeProperty("--sf-print-quote-number");
+    };
   }, [quote?.quoteNumber]);
 
   const groups = useMemo(() => groupItems(quote?.items ?? []), [quote]);
