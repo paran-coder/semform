@@ -40,9 +40,7 @@ export type QuoteTermsSnapshot = {
   cancellationTerms: string;
 };
 
-export type Quote = {
-  id: string;
-  quoteNumber: string;
+export type QuotePayload = {
   status: QuoteStatus;
   clientId: string;
   client: QuoteClientSnapshot;
@@ -65,6 +63,46 @@ export type Quote = {
   subtotal: number;
   vat: number;
   total: number;
+};
+
+export type QuoteVersion = {
+  version: number;
+  savedAt: string;
+  payload: QuotePayload;
+};
+
+export type Quote = QuotePayload & {
+  id: string;
+  quoteNumber: string;
+  version?: number;
+  versions?: QuoteVersion[];
   createdAt: string;
   updatedAt: string;
 };
+
+export function quoteToPayload(quote: Quote): QuotePayload {
+  return {
+    status: quote.status,
+    clientId: quote.clientId,
+    client: { ...quote.client },
+    projectName: quote.projectName,
+    purpose: quote.purpose,
+    deliveryDate: quote.deliveryDate,
+    aspectRatio: quote.aspectRatio,
+    resolution: quote.resolution,
+    projectNotes: quote.projectNotes,
+    pricingPresetId: quote.pricingPresetId,
+    pricingPresetName: quote.pricingPresetName,
+    minCharge: quote.minCharge,
+    rounding: quote.rounding,
+    items: quote.items.map((item) => ({ ...item })),
+    termPresetId: quote.termPresetId,
+    termPresetName: quote.termPresetName,
+    terms: { ...quote.terms },
+    vatEnabled: quote.vatEnabled,
+    vatRate: quote.vatRate,
+    subtotal: quote.subtotal,
+    vat: quote.vat,
+    total: quote.total,
+  };
+}

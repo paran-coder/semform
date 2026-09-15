@@ -1,20 +1,45 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRightIcon, PlusIcon } from "@/components/ui/icons";
 import { formatWon, numberFromInput } from "@/lib/format";
 import { createId } from "@/lib/ids";
 import { calculateQuote, pricingPresetToQuoteItems } from "@/lib/quote-calculation";
-import { getAllRecords, putRecord, STORES } from "@/lib/storage/database";
+import { generateQuoteNumber } from "@/lib/quote-number";
+import { clearLocalDraft, getLocalDraft, saveLocalDraft } from "@/lib/storage/drafts";
+import { getAllRecords, getRecord, putRecord, STORES } from "@/lib/storage/database";
 import type { Client } from "@/types/client";
-import type { PricingCalculationType, PricingPreset } from "@/types/pricing";
+import type { PricingCalculationType, PricingPreset, PricingRounding } from "@/types/pricing";
 import { CALCULATION_LABELS } from "@/types/pricing";
-import type { Quote, QuoteItem, QuoteTermsSnapshot } from "@/types/quote";
+import { quoteToPayload, type Quote, type QuoteItem, type QuoteTermsSnapshot } from "@/types/quote";
 import type { TermPreset } from "@/types/terms";
 
 type WizardStep = 0 | 1 | 2 | 3 | 4;
+
+type QuoteWizardProps = {
+  quoteId?: string;
+};
+
+type QuoteWizardDraft = {
+  step: WizardStep;
+  clientId: string;
+  projectName: string;
+  purpose: string;
+  deliveryDate: string;
+  aspectRatio: string;
+  resolution: string;
+  projectNotes: string;
+  pricingPresetId: string;
+  pricingMinCharge: number;
+  pricingRounding: PricingRounding;
+  items: QuoteItem[];
+  termPresetId: string;
+  terms: QuoteTermsSnapshot;
+  vatEnabled: boolean;
+  vatRate: number;
+};
 
 const steps = ["고객", "프로젝트", "제작", "조건", "검토"] as const;
 
@@ -52,15 +77,6 @@ function termToSnapshot(preset: TermPreset): QuoteTermsSnapshot {
   };
 }
 
-function generateQuoteNumber(existing: Quote[]) {
-  const year = new Date().getFullYear();
-  const max = existing.reduce((current, quote) => {
-    const match = quote.quoteNumber?.match(new RegExp(`^Q-${year}-(\\d+)$`));
-    return match ? Math.max(current, Number(match[1])) : current;
-  }, 0);
-  return `Q-${year}-${String(max + 1).padStart(4, "0")}`;
-}
-
 function newManualItem(): QuoteItem {
   return {
     id: createId("quote-item"),
@@ -88,13 +104,40 @@ function clientSnapshot(client?: Client) {
   };
 }
 
-export function QuoteWizard() {
+function quoteToDraft(quote: Quote): QuoteWizardDraft {
+  return {
+    step: 0,
+    clientId: quote.clientId,
+    projectName: quote.projectName,
+    purpose: quote.purpose,
+    deliveryDate: quote.deliveryDate,
+    aspectRatio: quote.aspectRatio,
+    resolution: quote.resolution,
+    projectNotes: quote.projectNotes,
+    pricingPresetId: quote.pricingPresetId,
+    pricingMinCharge: quote.minCharge,
+    pricingRounding: quote.rounding,
+    items: quote.items.map((item) => ({ ...item })),
+    termPresetId: quote.termPresetId,
+    terms: { ...quote.terms },
+    vatEnabled: quote.vatEnabled,
+    vatRate: quote.vatRate,
+  };
+}
+
+function timeLabel(date = new Date()) {
+  return new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
+}
+
+export function QuoteWizard({ quoteId }: QuoteWizardProps) {
   const router = useRouter();
+  const draftKey = `quote-wizard:${quoteId ?? "new"}`;
   const [step, setStep] = useState<WizardStep>(0);
   const [clients, setClients] = useState<Client[]>([]);
   const [pricingPresets, setPricingPresets] = useState<PricingPreset[]>([]);
   const [termPresets, setTermPresets] = useState<TermPreset[]>([]);
   const [existingQuotes, setExistingQuotes] = useState<Quote[]>([]);
+  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [clientId, setClientId] = useState("");
   const [projectName, setProjectName] = useState("");
   const [purpose, setPurpose] = useState("SNS 광고");
@@ -103,14 +146,19 @@ export function QuoteWizard() {
   const [resolution, setResolution] = useState("4K");
   const [projectNotes, setProjectNotes] = useState("");
   const [pricingPresetId, setPricingPresetId] = useState("");
+  const [pricingMinCharge, setPricingMinCharge] = useState(0);
+  const [pricingRounding, setPricingRounding] = useState<PricingRounding>("none");
   const [items, setItems] = useState<QuoteItem[]>([]);
   const [termPresetId, setTermPresetId] = useState("");
   const [terms, setTerms] = useState<QuoteTermsSnapshot>(defaultTerms());
   const [vatEnabled, setVatEnabled] = useState(true);
   const [vatRate, setVatRate] = useState(10);
   const [loading, setLoading] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("데이터를 불러오는 중입니다.");
+  const latestDraftRef = useRef<QuoteWizardDraft | null>(null);
+  const skipDraftSaveRef = useRef(false);
 
   const selectedClient = clients.find((client) => client.id === clientId);
   const selectedPricing = pricingPresets.find((preset) => preset.id === pricingPresetId);
@@ -118,20 +166,21 @@ export function QuoteWizard() {
 
   const totals = useMemo(() => calculateQuote(
     items,
-    selectedPricing?.minCharge ?? 0,
-    selectedPricing?.rounding ?? "none",
+    pricingMinCharge,
+    pricingRounding,
     vatEnabled,
     vatRate,
-  ), [items, selectedPricing, vatEnabled, vatRate]);
+  ), [items, pricingMinCharge, pricingRounding, vatEnabled, vatRate]);
 
   useEffect(() => {
     async function load() {
       try {
-        const [clientRecords, pricingRecords, termRecords, quoteRecords] = await Promise.all([
+        const [clientRecords, pricingRecords, termRecords, quoteRecords, targetQuote] = await Promise.all([
           getAllRecords<Client>(STORES.clients),
           getAllRecords<PricingPreset>(STORES.pricingPresets),
           getAllRecords<TermPreset>(STORES.termPresets),
           getAllRecords<Quote>(STORES.quotes),
+          quoteId ? getRecord<Quote>(STORES.quotes, quoteId) : Promise.resolve(null),
         ]);
         const sortedPricing = pricingRecords.sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
         const sortedTerms = termRecords.sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
@@ -139,33 +188,96 @@ export function QuoteWizard() {
         setPricingPresets(sortedPricing);
         setTermPresets(sortedTerms);
         setExistingQuotes(quoteRecords);
+        setEditingQuote(targetQuote);
 
-        const searchClient = new URLSearchParams(window.location.search).get("client");
-        const initialClient = searchClient && clientRecords.some((client) => client.id === searchClient) ? searchClient : clientRecords[0]?.id ?? "";
-        setClientId(initialClient);
+        const fresh = new URLSearchParams(window.location.search).get("fresh") === "1";
+        if (fresh) await clearLocalDraft(draftKey);
+        const localDraft = fresh ? null : await getLocalDraft<QuoteWizardDraft>(draftKey);
 
-        if (sortedPricing[0]) {
-          setPricingPresetId(sortedPricing[0].id);
-          setItems(pricingPresetToQuoteItems(sortedPricing[0]));
+        let initial: QuoteWizardDraft | null = localDraft;
+        if (!initial && targetQuote) initial = quoteToDraft(targetQuote);
+
+        if (initial) {
+          setStep(initial.step);
+          setClientId(initial.clientId);
+          setProjectName(initial.projectName);
+          setPurpose(initial.purpose);
+          setDeliveryDate(initial.deliveryDate);
+          setAspectRatio(initial.aspectRatio);
+          setResolution(initial.resolution);
+          setProjectNotes(initial.projectNotes);
+          setPricingPresetId(initial.pricingPresetId);
+          setPricingMinCharge(initial.pricingMinCharge ?? targetQuote?.minCharge ?? 0);
+          setPricingRounding(initial.pricingRounding ?? targetQuote?.rounding ?? "none");
+          setItems(initial.items);
+          setTermPresetId(initial.termPresetId);
+          setTerms(initial.terms);
+          setVatEnabled(initial.vatEnabled);
+          setVatRate(initial.vatRate);
+          setMessage(localDraft ? "작성 중이던 내용을 이어서 불러왔습니다." : "저장된 견적을 편집합니다.");
+        } else {
+          const searchClient = new URLSearchParams(window.location.search).get("client");
+          const initialClient = searchClient && clientRecords.some((client) => client.id === searchClient) ? searchClient : clientRecords[0]?.id ?? "";
+          setClientId(initialClient);
+          if (sortedPricing[0]) {
+            setPricingPresetId(sortedPricing[0].id);
+            setPricingMinCharge(sortedPricing[0].minCharge);
+            setPricingRounding(sortedPricing[0].rounding);
+            setItems(pricingPresetToQuoteItems(sortedPricing[0]));
+          }
+          if (sortedTerms[0]) {
+            setTermPresetId(sortedTerms[0].id);
+            setTerms(termToSnapshot(sortedTerms[0]));
+          }
+          setMessage("견적을 작성할 준비가 되었습니다.");
         }
-        if (sortedTerms[0]) {
-          setTermPresetId(sortedTerms[0].id);
-          setTerms(termToSnapshot(sortedTerms[0]));
-        }
+        setHydrated(true);
         setLoading(false);
-        setMessage("견적을 작성할 준비가 되었습니다.");
       } catch {
         setLoading(false);
         setMessage("브라우저 로컬 데이터를 불러오지 못했습니다.");
       }
     }
     void load();
-  }, []);
+  }, [draftKey, quoteId]);
+
+  const draftValue = useMemo<QuoteWizardDraft>(() => ({
+    step,
+    clientId,
+    projectName,
+    purpose,
+    deliveryDate,
+    aspectRatio,
+    resolution,
+    projectNotes,
+    pricingPresetId,
+    pricingMinCharge,
+    pricingRounding,
+    items,
+    termPresetId,
+    terms,
+    vatEnabled,
+    vatRate,
+  }), [step, clientId, projectName, purpose, deliveryDate, aspectRatio, resolution, projectNotes, pricingPresetId, pricingMinCharge, pricingRounding, items, termPresetId, terms, vatEnabled, vatRate]);
+
+  useEffect(() => { latestDraftRef.current = draftValue; }, [draftValue]);
+
+  useEffect(() => {
+    if (!hydrated || loading) return;
+    const timer = window.setTimeout(() => {
+      void saveLocalDraft(draftKey, draftValue).then(() => setMessage(`임시 저장됨 · ${timeLabel()}`)).catch(() => setMessage("임시 저장에 실패했습니다."));
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [draftKey, draftValue, hydrated, loading]);
+
+  useEffect(() => () => {
+    if (!skipDraftSaveRef.current && latestDraftRef.current) void saveLocalDraft(draftKey, latestDraftRef.current);
+  }, [draftKey]);
 
   function applyPricingPreset(id: string) {
     const preset = pricingPresets.find((item) => item.id === id);
     setPricingPresetId(id);
-    if (preset) setItems(pricingPresetToQuoteItems(preset));
+    if (preset) { setPricingMinCharge(preset.minCharge); setPricingRounding(preset.rounding); setItems(pricingPresetToQuoteItems(preset)); }
   }
 
   function applyTermPreset(id: string) {
@@ -190,7 +302,6 @@ export function QuoteWizard() {
     return true;
   }
 
-
   function canSave() {
     return Boolean(selectedClient && projectName.trim() && items.length > 0 && terms.depositPercent + terms.balancePercent === 100);
   }
@@ -212,20 +323,23 @@ export function QuoteWizard() {
       setMessage(step === 0 ? "고객을 선택해 주세요." : step === 1 ? "프로젝트명을 입력해 주세요." : step === 2 ? "제작 항목을 하나 이상 추가해 주세요." : "계약금과 잔금의 합계를 100%로 맞춰 주세요.");
       return;
     }
-    setMessage("변경사항은 견적 저장 시 현재 브라우저에 저장됩니다.");
     setStep((current) => Math.min(4, current + 1) as WizardStep);
+  }
+
+  async function resetDraft() {
+    if (!window.confirm("작성 중인 내용을 지우고 처음부터 시작할까요?")) return;
+    skipDraftSaveRef.current = true;
+    await clearLocalDraft(draftKey);
+    window.location.href = quoteId ? `/quotes/${quoteId}/edit?fresh=1` : "/quotes/new?fresh=1";
   }
 
   async function saveQuote() {
     if (!selectedClient || !projectName.trim()) return;
     setSaving(true);
-    setMessage("견적을 저장하는 중입니다.");
+    setMessage(editingQuote ? "새 버전으로 저장하는 중입니다." : "견적을 저장하는 중입니다.");
     const timestamp = now();
-    const quoteId = createId("quote");
-    const quote: Quote = {
-      id: quoteId,
-      quoteNumber: generateQuoteNumber(existingQuotes),
-      status: "draft",
+    const payload = {
+      status: "draft" as const,
       clientId: selectedClient.id,
       client: clientSnapshot(selectedClient),
       projectName: projectName.trim(),
@@ -235,9 +349,9 @@ export function QuoteWizard() {
       resolution,
       projectNotes: projectNotes.trim(),
       pricingPresetId,
-      pricingPresetName: selectedPricing?.name ?? "직접 입력",
-      minCharge: selectedPricing?.minCharge ?? 0,
-      rounding: selectedPricing?.rounding ?? "none",
+      pricingPresetName: selectedPricing?.name ?? editingQuote?.pricingPresetName ?? "직접 입력",
+      minCharge: pricingMinCharge,
+      rounding: pricingRounding,
       items: totals.items,
       termPresetId,
       termPresetName: selectedTerms?.name ?? terms.name,
@@ -247,14 +361,33 @@ export function QuoteWizard() {
       subtotal: totals.subtotal,
       vat: totals.vat,
       total: totals.total,
+    };
+
+    const quote: Quote = editingQuote ? {
+      ...editingQuote,
+      ...payload,
+      version: (editingQuote.version ?? 1) + 1,
+      versions: [
+        ...(editingQuote.versions ?? []),
+        { version: editingQuote.version ?? 1, savedAt: editingQuote.updatedAt || editingQuote.createdAt, payload: quoteToPayload(editingQuote) },
+      ],
+      updatedAt: timestamp,
+    } : {
+      id: createId("quote"),
+      quoteNumber: generateQuoteNumber(existingQuotes),
+      version: 1,
+      versions: [],
+      ...payload,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
 
     try {
       await putRecord(STORES.quotes, quote);
+      skipDraftSaveRef.current = true;
+      await clearLocalDraft(draftKey);
       setSaving(false);
-      router.push(`/quotes/${quoteId}`);
+      router.push(`/quotes/${quote.id}`);
     } catch {
       setSaving(false);
       setMessage("견적을 저장하지 못했습니다.");
@@ -268,8 +401,8 @@ export function QuoteWizard() {
   return (
     <div className="quote-wizard">
       <header className="quote-wizard__topbar">
-        <div><Link href="/quotes">← 견적</Link><span>새 견적</span></div>
-        <span className="quote-wizard__status">{message}</span>
+        <div><Link href={editingQuote ? `/quotes/${editingQuote.id}` : "/quotes"}>← {editingQuote ? "견적 상세" : "견적"}</Link><span>{editingQuote ? `${editingQuote.quoteNumber} · v${editingQuote.version ?? 1} 편집` : "새 견적"}</span></div>
+        <div className="quote-wizard__top-actions"><span className="quote-wizard__status">{message}</span><button className="quote-reset-button" onClick={resetDraft} type="button">{editingQuote ? "저장본으로 되돌리기" : "처음부터"}</button></div>
       </header>
 
       <div className="quote-wizard__layout">
@@ -289,7 +422,7 @@ export function QuoteWizard() {
                 {clients.length ? <>
                   <label className="field wizard-field"><span className="field__label">고객 선택</span><select onChange={(event) => setClientId(event.target.value)} value={clientId}>{clients.map((client) => <option key={client.id} value={client.id}>{client.companyName}{client.contactName ? ` · ${client.contactName}` : ""}</option>)}</select></label>
                   {selectedClient ? <div className="selected-client-card"><div className="selected-client-card__avatar">{selectedClient.companyName.slice(0, 1)}</div><div><strong>{selectedClient.companyName}</strong><span>{selectedClient.contactName || "담당자 미입력"}</span><small>{selectedClient.email || selectedClient.phone || "연락처 미입력"}</small></div><Link href="/clients">고객 관리 →</Link></div> : null}
-                </> : <div className="wizard-empty"><strong>저장된 고객이 없습니다.</strong><p>먼저 고객을 한 명 추가한 뒤 견적을 작성해 주세요.</p><Link className="sf-button sf-button--primary sf-button--md" href="/clients"><PlusIcon size={16} /> 고객 추가</Link></div>}
+                </> : <div className="wizard-empty"><strong>저장된 고객이 없습니다.</strong><p>먼저 고객을 한 명 추가한 뒤 견적을 작성해 주세요. 이 화면을 벗어나도 작성 중인 내용은 자동 보관됩니다.</p><Link className="sf-button sf-button--primary sf-button--md" href="/clients"><PlusIcon size={16} /> 고객 추가</Link></div>}
               </section>
             ) : null}
 
@@ -310,12 +443,13 @@ export function QuoteWizard() {
             {step === 2 ? (
               <section className="wizard-section wizard-section--wide">
                 <div className="wizard-section__heading wizard-section__heading--row"><div><p className="eyebrow">03 제작</p><h1>제작 항목과 단가를 확인하세요.</h1><p>프리셋 가격은 이 견적에서만 수정되며 원래 단가 프리셋은 바뀌지 않습니다.</p></div>{pricingPresets.length ? <label className="wizard-preset-select"><span>단가 프리셋</span><select onChange={(event) => applyPricingPreset(event.target.value)} value={pricingPresetId}>{pricingPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select></label> : null}</div>
-                {!pricingPresets.length ? <div className="wizard-empty"><strong>단가 프리셋이 없습니다.</strong><p>단가 프리셋을 먼저 만들거나 직접 항목을 추가할 수 있습니다.</p><div><Link className="sf-button sf-button--secondary sf-button--md" href="/pricing">단가 프리셋 만들기</Link><button className="sf-button sf-button--primary sf-button--md" onClick={() => setItems([newManualItem()])} type="button">직접 항목 추가</button></div></div> : null}
+                {!pricingPresets.length ? <div className="wizard-empty"><strong>단가 프리셋이 없습니다.</strong><p>프리셋 화면에 다녀와도 지금까지 작성한 견적은 그대로 이어집니다.</p><div><Link className="sf-button sf-button--secondary sf-button--md" href="/pricing">단가 프리셋 만들기</Link><button className="sf-button sf-button--primary sf-button--md" onClick={() => setItems([newManualItem()])} type="button">직접 항목 추가</button></div></div> : null}
                 <div className="quote-item-editor-list">
                   {totals.items.map((item, index) => (
                     <article className="quote-item-editor" key={item.id}>
                       <div className="quote-item-editor__head"><span>{String(index + 1).padStart(2, "0")}</span><div><input aria-label="항목명" onChange={(event) => updateItem(item.id, { name: event.target.value })} value={item.name} /><small>{item.category} · {CALCULATION_LABELS[item.calculationType]}</small></div><strong>{formatWon(item.lineTotal)}</strong><button className="inline-danger" onClick={() => removeItem(item.id)} type="button">삭제</button></div>
                       <div className="quote-item-editor__fields">
+                        <label className="field"><span className="field__label">분류</span><input onChange={(event) => updateItem(item.id, { category: event.target.value })} value={item.category} /></label>
                         <label className="field"><span className="field__label">계산 방식</span><select onChange={(event) => updateItem(item.id, { calculationType: event.target.value as PricingCalculationType })} value={item.calculationType}>{Object.entries(CALCULATION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
                         {item.calculationType !== "fixed" && item.calculationType !== "percentage" ? <label className="field"><span className="field__label">수량</span><div className="suffix-field"><input inputMode="decimal" min="0" onChange={(event) => updateItem(item.id, { quantity: numberFromInput(event.target.value) })} type="number" value={item.quantity} /><span>{item.unit || "단위"}</span></div></label> : null}
                         {item.calculationType === "fixed" || item.calculationType === "base_plus_quantity" ? <label className="field"><span className="field__label">기본금액</span><div className="money-field"><span>₩</span><input inputMode="numeric" min="0" onChange={(event) => updateItem(item.id, { basePrice: numberFromInput(event.target.value) })} type="number" value={item.basePrice} /></div></label> : null}
@@ -343,10 +477,10 @@ export function QuoteWizard() {
 
             {step === 4 ? (
               <section className="wizard-section wizard-section--wide">
-                <div className="wizard-section__heading"><p className="eyebrow">05 검토</p><h1>저장하기 전에 마지막으로 확인하세요.</h1><p>견적을 저장하면 고객, 가격, 조건이 현재 값으로 고정되어 이후 프리셋 수정의 영향을 받지 않습니다.</p></div>
+                <div className="wizard-section__heading"><p className="eyebrow">05 검토</p><h1>{editingQuote ? "새 버전으로 저장하기 전에 확인하세요." : "저장하기 전에 마지막으로 확인하세요."}</h1><p>{editingQuote ? `저장하면 v${(editingQuote.version ?? 1) + 1}이 생성되고 이전 버전은 기록에 남습니다.` : "견적을 저장하면 고객, 가격, 조건이 현재 값으로 고정됩니다."}</p></div>
                 <div className="quote-review">
                   <div className="quote-review__hero"><div><span>{selectedClient?.companyName || "고객 미선택"}</span><h2>{projectName || "프로젝트명 없음"}</h2><p>{purpose} · {aspectRatio} · {resolution}{deliveryDate ? ` · ${deliveryDate}` : ""}</p></div><strong>{formatWon(totals.total)}</strong></div>
-                  <div className="quote-review__section"><h3>제작 항목</h3>{totals.items.map((item) => <div className="quote-review__row" key={item.id}><span><strong>{item.name}</strong><small>{CALCULATION_LABELS[item.calculationType]}</small></span><b>{formatWon(item.lineTotal)}</b></div>)}</div>
+                  <div className="quote-review__section"><h3>제작 항목</h3>{totals.items.map((item) => <div className="quote-review__row" key={item.id}><span><strong>{item.name}</strong><small>{item.category} · {CALCULATION_LABELS[item.calculationType]}</small></span><b>{formatWon(item.lineTotal)}</b></div>)}</div>
                   <div className="quote-review__section"><h3>조건</h3><div className="quote-review__facts"><span>계약금 <b>{terms.depositPercent}%</b></span><span>수정 <b>{terms.revisionCount}회</b></span><span>유효기간 <b>{terms.validDays}일</b></span><span>VAT <b>{vatEnabled ? `${vatRate}%` : "미적용"}</b></span></div></div>
                 </div>
               </section>
@@ -354,7 +488,7 @@ export function QuoteWizard() {
 
             <div className="quote-wizard__actions">
               <button className="sf-button sf-button--secondary sf-button--lg" disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1) as WizardStep)} type="button">이전</button>
-              {step < 4 ? <button className="sf-button sf-button--primary sf-button--lg" onClick={nextStep} type="button">다음 <ArrowRightIcon size={16} /></button> : <button className="sf-button sf-button--primary sf-button--lg" disabled={saving || !canSave()} onClick={saveQuote} type="button">{saving ? "저장 중" : "견적 저장"}</button>}
+              {step < 4 ? <button className="sf-button sf-button--primary sf-button--lg" onClick={nextStep} type="button">다음 <ArrowRightIcon size={16} /></button> : <button className="sf-button sf-button--primary sf-button--lg" disabled={saving || !canSave()} onClick={saveQuote} type="button">{saving ? "저장 중" : editingQuote ? `v${(editingQuote.version ?? 1) + 1} 저장` : "견적 저장"}</button>}
             </div>
           </div>
         </main>
@@ -362,7 +496,7 @@ export function QuoteWizard() {
         <aside className="quote-summary" aria-label="견적 요약">
           <p className="eyebrow">견적 요약</p><span className="quote-summary__label">예상 견적</span><strong className="quote-summary__total">{formatWon(totals.total)}</strong>
           <div className="quote-summary__breakdown"><span>공급가액 <b>{formatWon(totals.subtotal)}</b></span><span>VAT {vatEnabled ? `${vatRate}%` : "미적용"} <b>{formatWon(totals.vat)}</b></span></div>
-          <div className="quote-summary__meta"><span>고객 <b>{selectedClient?.companyName || "미선택"}</b></span><span>단가 <b>{selectedPricing?.name || "직접 입력"}</b></span><span>조건 <b>{selectedTerms?.name || terms.name}</b></span></div>
+          <div className="quote-summary__meta"><span>고객 <b>{selectedClient?.companyName || "미선택"}</b></span><span>단가 <b>{selectedPricing?.name || editingQuote?.pricingPresetName || "직접 입력"}</b></span><span>조건 <b>{selectedTerms?.name || terms.name}</b></span></div>
           <div className="quote-summary__progress"><span>{step + 1} / 5</span><div><i style={{ width: `${((step + 1) / 5) * 100}%` }} /></div></div>
         </aside>
       </div>

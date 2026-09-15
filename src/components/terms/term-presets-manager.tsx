@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PlusIcon, SlidersIcon } from "@/components/ui/icons";
 import { deleteRecord, getAllRecords, putRecord, STORES } from "@/lib/storage/database";
+import { clearLocalDraft, getLocalDraft, saveLocalDraft } from "@/lib/storage/drafts";
 import { createId } from "@/lib/ids";
 import { formatWon, numberFromInput } from "@/lib/format";
 import { TermPreset } from "@/types/terms";
 
 type LoadState = "loading" | "ready" | "error";
 type SaveState = "idle" | "saving" | "saved" | "error";
+
+const DRAFT_KEY = "term-preset-draft";
+type PresetDraftState = { draft: TermPreset; persistedSnapshot: string };
 
 function now() { return new Date().toISOString(); }
 
@@ -45,16 +49,27 @@ export function TermPresetsManager() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [message, setMessage] = useState("저장된 조건 프리셋을 불러오는 중입니다.");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const latestDraftRef = useRef<PresetDraftState | null>(null);
+  const latestDirtyRef = useRef(false);
 
   const dirty = useMemo(() => Boolean(draft && JSON.stringify(draft) !== persistedSnapshot), [draft, persistedSnapshot]);
   const paymentTotal = (draft?.depositPercent ?? 0) + (draft?.balancePercent ?? 0);
   const defaultPreset = presets.find((preset) => preset.isDefault);
 
-  async function reload(preferredId?: string) {
+  async function reload(preferredId?: string, restoreDraft = false) {
     try {
       const records = await getAllRecords<TermPreset>(STORES.termPresets);
       const sorted = records.sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || b.updatedAt.localeCompare(a.updatedAt));
       setPresets(sorted); setLoadState("ready");
+      if (restoreDraft && !preferredId) {
+        const local = await getLocalDraft<PresetDraftState>(DRAFT_KEY);
+        if (local?.draft) {
+          setDraft(clonePreset(local.draft));
+          setPersistedSnapshot(local.persistedSnapshot);
+          setMessage("작성 중이던 프리셋을 이어서 불러왔습니다.");
+          return;
+        }
+      }
       const selected = preferredId ? sorted.find((preset) => preset.id === preferredId) : sorted[0];
       if (selected) { const next = clonePreset(selected); setDraft(next); setPersistedSnapshot(JSON.stringify(next)); }
       else { setDraft(null); setPersistedSnapshot(""); }
@@ -62,21 +77,34 @@ export function TermPresetsManager() {
     } catch { setLoadState("error"); setMessage("이 브라우저에서 로컬 저장소를 사용할 수 없습니다."); }
   }
 
-  useEffect(() => { void reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => { void reload(undefined, true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
   useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault(); };
-    window.addEventListener("beforeunload", handler); return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
+    latestDirtyRef.current = dirty;
+    latestDraftRef.current = draft ? { draft: clonePreset(draft), persistedSnapshot } : null;
+  }, [draft, dirty, persistedSnapshot]);
+  useEffect(() => {
+    if (loadState !== "ready" || !draft || !dirty) return;
+    const timer = window.setTimeout(() => {
+      void saveLocalDraft<PresetDraftState>(DRAFT_KEY, { draft: clonePreset(draft), persistedSnapshot })
+        .then(() => setMessage("작성 중인 내용이 임시 저장되었습니다."))
+        .catch(() => setMessage("임시 저장에 실패했습니다."));
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [draft, dirty, loadState, persistedSnapshot]);
+  useEffect(() => () => {
+    if (latestDirtyRef.current && latestDraftRef.current) void saveLocalDraft<PresetDraftState>(DRAFT_KEY, latestDraftRef.current);
+  }, []);
 
   function choosePreset(preset: TermPreset) {
     if (dirty && !window.confirm("저장하지 않은 변경사항이 있습니다. 다른 프리셋으로 이동할까요?")) return;
-    const next = clonePreset(preset); setDraft(next); setPersistedSnapshot(JSON.stringify(next)); setSaveState("idle"); setDeleteConfirm(false); setMessage("프리셋을 불러왔습니다.");
+    const next = clonePreset(preset); void clearLocalDraft(DRAFT_KEY); setDraft(next); setPersistedSnapshot(JSON.stringify(next)); setSaveState("idle"); setDeleteConfirm(false); setMessage("프리셋을 불러왔습니다.");
   }
 
   function startNew(kind: "blank" | "recommended") {
     if (dirty && !window.confirm("저장하지 않은 변경사항이 있습니다. 새 프리셋을 만들까요?")) return;
     const next = kind === "recommended" ? recommendedPreset() : emptyPreset();
     setDraft(next); setPersistedSnapshot(""); setSaveState("idle"); setDeleteConfirm(false);
+    void saveLocalDraft<PresetDraftState>(DRAFT_KEY, { draft: clonePreset(next), persistedSnapshot: "" });
     setMessage(kind === "recommended" ? "추천 조건을 넣었습니다. 실제 작업 방식에 맞게 수정한 뒤 저장하세요." : "새 조건 프리셋을 작성하고 있습니다.");
   }
 
@@ -101,16 +129,16 @@ export function TermPresetsManager() {
     };
     try {
       if (next.isDefault) for (const preset of presets) if (preset.id !== next.id && preset.isDefault) await putRecord(STORES.termPresets, { ...preset, isDefault: false, updatedAt: timestamp });
-      await putRecord(STORES.termPresets, next); setSaveState("saved"); setMessage("조건 프리셋을 저장했습니다."); await reload(next.id);
+      await putRecord(STORES.termPresets, next); await clearLocalDraft(DRAFT_KEY); setSaveState("saved"); setMessage("조건 프리셋을 저장했습니다."); await reload(next.id, false);
     } catch { setSaveState("error"); setMessage("프리셋을 저장하지 못했습니다."); }
   }
 
   async function removePreset() {
     if (!draft) return;
     const exists = presets.some((preset) => preset.id === draft.id);
-    if (!exists) { setDraft(null); setPersistedSnapshot(""); setDeleteConfirm(false); return; }
+    if (!exists) { await clearLocalDraft(DRAFT_KEY); setDraft(null); setPersistedSnapshot(""); setDeleteConfirm(false); return; }
     if (!deleteConfirm) { setDeleteConfirm(true); setMessage("한 번 더 누르면 이 프리셋을 삭제합니다."); return; }
-    try { await deleteRecord(STORES.termPresets, draft.id); setDraft(null); setPersistedSnapshot(""); setDeleteConfirm(false); setSaveState("idle"); await reload(); setMessage("조건 프리셋을 삭제했습니다."); }
+    try { await deleteRecord(STORES.termPresets, draft.id); await clearLocalDraft(DRAFT_KEY); setDraft(null); setPersistedSnapshot(""); setDeleteConfirm(false); setSaveState("idle"); await reload(undefined, false); setMessage("조건 프리셋을 삭제했습니다."); }
     catch { setSaveState("error"); setMessage("프리셋을 삭제하지 못했습니다."); }
   }
 
