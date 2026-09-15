@@ -3439,7 +3439,7 @@ a {
   .studio-quote-sheet { transform-origin: top left; }
 }
 
-/* v0.9 — paged-media rules. Keep large sections splittable; only atomic rows stay together. */
+/* v0.9.2 — Chrome-safe paged-media rules. Large sections and headings must remain fragmentable. */
 @page {
   size: A4;
   margin: 11mm 17mm 14mm;
@@ -3495,11 +3495,20 @@ a {
   .studio-quote-sheet__accent { top: 0; height: 1.8mm; }
   .studio-quote-number strong { string-set: sf-quote-number content(); }
 
-  /* The section itself must be allowed to flow across pages. */
-  .studio-section { break-inside: auto !important; page-break-inside: auto !important; }
-  .studio-section__header { break-after: avoid-page; page-break-after: avoid; }
-  .studio-category { break-inside: auto !important; page-break-inside: auto !important; }
-  .studio-category > header { break-after: avoid-page; page-break-after: avoid; }
+  /* Chrome print can push the whole following section when avoid-page is used on headings.
+     Reset every large/structural block so content can use the remaining space on the page. */
+  .studio-section,
+  .studio-section__header,
+  .studio-category-list,
+  .studio-category,
+  .studio-category > header {
+    break-inside: auto !important;
+    break-before: auto !important;
+    break-after: auto !important;
+    page-break-inside: auto !important;
+    page-break-before: auto !important;
+    page-break-after: auto !important;
+  }
 
   /* Atomic content blocks should never be torn in half. */
   .studio-line-item,
