@@ -2,6 +2,8 @@ import Link from "next/link";
 import { PlusIcon } from "@/components/ui/icons";
 import { MonthlySummary } from "./monthly-summary";
 import { RecentQuotes } from "./recent-quotes";
+import { BackupReminder } from "./backup-reminder";
+import { APP_CONFIG } from "@/config/app";
 
 export function Dashboard() {
   return (
@@ -9,7 +11,7 @@ export function Dashboard() {
       <header className="dashboard-topbar">
         <div>
           <span className="dashboard-topbar__brand">SEMFORM</span>
-          <span className="dashboard-topbar__date">SEMFORM v0.5</span>
+          <span className="dashboard-topbar__date">SEMFORM v{APP_CONFIG.version}</span>
         </div>
       </header>
 
@@ -26,6 +28,7 @@ export function Dashboard() {
           </Link>
         </section>
 
+        <BackupReminder />
         <MonthlySummary />
         <RecentQuotes />
       </div>

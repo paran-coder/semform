@@ -126,3 +126,23 @@ export async function replaceAllStoreRecords(records: Record<StoreName, unknown[
     };
   });
 }
+
+
+export async function clearAllStoreRecords(): Promise<void> {
+  const db = await openSemformDB();
+  const storeNames = Object.values(STORES);
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeNames, "readwrite");
+    for (const storeName of storeNames) transaction.objectStore(storeName).clear();
+    transaction.oncomplete = () => { db.close(); resolve(); };
+    transaction.onerror = () => {
+      db.close();
+      reject(transaction.error ?? new Error("로컬 데이터를 초기화하지 못했습니다."));
+    };
+    transaction.onabort = () => {
+      db.close();
+      reject(transaction.error ?? new Error("로컬 데이터 초기화가 중단되었습니다."));
+    };
+  });
+}

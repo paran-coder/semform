@@ -16,7 +16,7 @@ export default function SettingsPage() {
       <PageFrame
         eyebrow="설정"
         title="셈폼의 기본 정보와 데이터를 관리하세요."
-        description="내 정보와 단가·조건 프리셋을 관리하고, 현재 브라우저에 저장된 모든 데이터를 직접 백업할 수 있습니다."
+        description="내 정보와 단가·조건 프리셋을 관리하고, 현재 브라우저 데이터를 백업·복원하거나 필요할 때 안전하게 초기화할 수 있습니다."
       >
         <div className="settings-grid" aria-label="설정 메뉴">
           {managementLinks.map((item) => (

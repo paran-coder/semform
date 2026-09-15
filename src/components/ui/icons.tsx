@@ -179,3 +179,12 @@ export function ArrowUpIcon(props: IconProps) {
 export function ArrowDownIcon(props: IconProps) {
   return <IconBase {...props}><path d="M12 5v14M7 14l5 5 5-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" /></IconBase>;
 }
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4.5 7h15M9 7V4.5h6V7M7.5 7l.8 12.5h7.4L16.5 7" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+      <path d="M10 10.5v5.5M14 10.5v5.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+    </IconBase>
+  );
+}
