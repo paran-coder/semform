@@ -59,6 +59,12 @@ export function QuotePrint() {
     }).finally(() => setLoading(false));
   }, [params.id]);
 
+  useEffect(() => {
+    if (!quote?.quoteNumber) return;
+    document.documentElement.style.setProperty("--sf-print-quote-number", `"${quote.quoteNumber}"`);
+    return () => document.documentElement.style.removeProperty("--sf-print-quote-number");
+  }, [quote?.quoteNumber]);
+
   const groups = useMemo(() => groupItems(quote?.items ?? []), [quote]);
 
   if (loading) return <div className="print-loading">견적서를 준비하는 중입니다.</div>;

@@ -3439,16 +3439,82 @@ a {
   .studio-quote-sheet { transform-origin: top left; }
 }
 
-@page { size: A4; margin: 0; }
+/* v0.9 — paged-media rules. Keep large sections splittable; only atomic rows stay together. */
+@page {
+  size: A4;
+  margin: 11mm 17mm 14mm;
+
+  @top-left {
+    content: "SEMFORM";
+    color: #181a20;
+    font-family: Arial, sans-serif;
+    font-size: 7pt;
+    font-weight: 700;
+    letter-spacing: .04em;
+    vertical-align: middle;
+  }
+
+  @top-right {
+    content: var(--sf-print-quote-number, "");
+    content: string(sf-quote-number, first);
+    color: #707a8a;
+    font-family: Arial, sans-serif;
+    font-size: 6.8pt;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    color: #929aa5;
+    font-family: Arial, sans-serif;
+    font-size: 6.5pt;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+}
+
+@page :first {
+  @top-left { content: ""; }
+  @top-right { content: ""; }
+}
+
 @media print {
   html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .print-shell { padding: 0 !important; background: #fff !important; }
+  body { overflow: visible !important; }
+  .print-shell { min-height: 0 !important; padding: 0 !important; background: #fff !important; overflow: visible !important; }
   .print-toolbar { display: none !important; }
-  .studio-quote-sheet { width: 210mm; min-height: 297mm; margin: 0; padding: 18mm 17mm 16mm; box-shadow: none !important; }
-  .studio-section,
-  .studio-category,
+  .studio-quote-sheet {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 8mm 0 0;
+    overflow: visible;
+    box-shadow: none !important;
+  }
+  .studio-quote-sheet__accent { top: 0; height: 1.8mm; }
+  .studio-quote-number strong { string-set: sf-quote-number content(); }
+
+  /* The section itself must be allowed to flow across pages. */
+  .studio-section { break-inside: auto !important; page-break-inside: auto !important; }
+  .studio-section__header { break-after: avoid-page; page-break-after: avoid; }
+  .studio-category { break-inside: auto !important; page-break-inside: auto !important; }
+  .studio-category > header { break-after: avoid-page; page-break-after: avoid; }
+
+  /* Atomic content blocks should never be torn in half. */
+  .studio-line-item,
+  .studio-sum,
   .studio-payment-grid,
-  .studio-terms-list p { break-inside: avoid; }
+  .studio-terms-list p,
+  .studio-project-notes,
+  .studio-footer {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  /* Avoid an orphaned heading at the bottom of a page. */
+  .studio-category-list,
+  .studio-terms-list { break-before: auto; }
 }
 
 /* v0.8.0 — readable hierarchy, local data tools, reordering */
