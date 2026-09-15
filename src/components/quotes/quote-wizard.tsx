@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRightIcon, PlusIcon } from "@/components/ui/icons";
+import { ArrowDownIcon, ArrowRightIcon, ArrowUpIcon, GripIcon, PlusIcon } from "@/components/ui/icons";
 import { formatWon, numberFromInput } from "@/lib/format";
 import { createId } from "@/lib/ids";
 import { calculateQuote, pricingPresetToQuoteItems } from "@/lib/quote-calculation";
@@ -129,6 +129,21 @@ function timeLabel(date = new Date()) {
   return new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
 }
 
+function itemCategory(item: QuoteItem) {
+  return item.category.trim() || "기타";
+}
+
+function groupQuoteItems(items: QuoteItem[]) {
+  const groups: Array<{ category: string; items: QuoteItem[] }> = [];
+  for (const item of items) {
+    const category = itemCategory(item);
+    let group = groups.find((entry) => entry.category === category);
+    if (!group) { group = { category, items: [] }; groups.push(group); }
+    group.items.push(item);
+  }
+  return groups;
+}
+
 export function QuoteWizard({ quoteId }: QuoteWizardProps) {
   const router = useRouter();
   const draftKey = `quote-wizard:${quoteId ?? "new"}`;
@@ -157,6 +172,8 @@ export function QuoteWizard({ quoteId }: QuoteWizardProps) {
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("데이터를 불러오는 중입니다.");
+  const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
+  const [draggingCategory, setDraggingCategory] = useState<string | null>(null);
   const latestDraftRef = useRef<QuoteWizardDraft | null>(null);
   const skipDraftSaveRef = useRef(false);
 
@@ -171,6 +188,7 @@ export function QuoteWizard({ quoteId }: QuoteWizardProps) {
     vatEnabled,
     vatRate,
   ), [items, pricingMinCharge, pricingRounding, vatEnabled, vatRate]);
+  const itemGroups = useMemo(() => groupQuoteItems(totals.items), [totals.items]);
 
   useEffect(() => {
     async function load() {
@@ -292,6 +310,53 @@ export function QuoteWizard({ quoteId }: QuoteWizardProps) {
 
   function removeItem(id: string) {
     setItems((current) => current.filter((item) => item.id !== id));
+  }
+
+  function moveItem(sourceId: string, targetId: string) {
+    if (sourceId === targetId) return;
+    setItems((current) => {
+      const sourceIndex = current.findIndex((item) => item.id === sourceId);
+      const targetIndex = current.findIndex((item) => item.id === targetId);
+      if (sourceIndex < 0 || targetIndex < 0 || itemCategory(current[sourceIndex]) !== itemCategory(current[targetIndex])) return current;
+      const next = current.slice();
+      const [moved] = next.splice(sourceIndex, 1);
+      const nextTarget = next.findIndex((item) => item.id === targetId);
+      const insertIndex = sourceIndex < targetIndex ? nextTarget + 1 : nextTarget;
+      next.splice(insertIndex, 0, moved);
+      return next;
+    });
+  }
+
+  function moveItemByOffset(itemId: string, offset: number) {
+    const currentItem = items.find((item) => item.id === itemId);
+    if (!currentItem) return;
+    const siblings = items.filter((item) => itemCategory(item) === itemCategory(currentItem));
+    const index = siblings.findIndex((item) => item.id === itemId);
+    const target = siblings[index + offset];
+    if (target) moveItem(itemId, target.id);
+  }
+
+  function moveCategory(sourceCategory: string, targetCategory: string) {
+    if (sourceCategory === targetCategory) return;
+    setItems((current) => {
+      const groups = groupQuoteItems(current);
+      const sourceIndex = groups.findIndex((group) => group.category === sourceCategory);
+      const targetIndex = groups.findIndex((group) => group.category === targetCategory);
+      if (sourceIndex < 0 || targetIndex < 0) return current;
+      const next = groups.slice();
+      const [moved] = next.splice(sourceIndex, 1);
+      const adjustedTarget = next.findIndex((group) => group.category === targetCategory);
+      const insertIndex = sourceIndex < targetIndex ? adjustedTarget + 1 : adjustedTarget;
+      next.splice(insertIndex, 0, moved);
+      return next.flatMap((group) => group.items);
+    });
+  }
+
+  function moveCategoryByOffset(category: string, offset: number) {
+    const groups = groupQuoteItems(items);
+    const index = groups.findIndex((group) => group.category === category);
+    const target = groups[index + offset];
+    if (target) moveCategory(category, target.category);
   }
 
   function canContinue(target = step) {
@@ -444,19 +509,72 @@ export function QuoteWizard({ quoteId }: QuoteWizardProps) {
               <section className="wizard-section wizard-section--wide">
                 <div className="wizard-section__heading wizard-section__heading--row"><div><p className="eyebrow">03 제작</p><h1>제작 항목과 단가를 확인하세요.</h1><p>프리셋 가격은 이 견적에서만 수정되며 원래 단가 프리셋은 바뀌지 않습니다.</p></div>{pricingPresets.length ? <label className="wizard-preset-select"><span>단가 프리셋</span><select onChange={(event) => applyPricingPreset(event.target.value)} value={pricingPresetId}>{pricingPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select></label> : null}</div>
                 {!pricingPresets.length ? <div className="wizard-empty"><strong>단가 프리셋이 없습니다.</strong><p>프리셋 화면에 다녀와도 지금까지 작성한 견적은 그대로 이어집니다.</p><div><Link className="sf-button sf-button--secondary sf-button--md" href="/pricing">단가 프리셋 만들기</Link><button className="sf-button sf-button--primary sf-button--md" onClick={() => setItems([newManualItem()])} type="button">직접 항목 추가</button></div></div> : null}
-                <div className="quote-item-editor-list">
-                  {totals.items.map((item, index) => (
-                    <article className="quote-item-editor" key={item.id}>
-                      <div className="quote-item-editor__head"><span>{String(index + 1).padStart(2, "0")}</span><div><input aria-label="항목명" onChange={(event) => updateItem(item.id, { name: event.target.value })} value={item.name} /><small>{item.category} · {CALCULATION_LABELS[item.calculationType]}</small></div><strong>{formatWon(item.lineTotal)}</strong><button className="inline-danger" onClick={() => removeItem(item.id)} type="button">삭제</button></div>
-                      <div className="quote-item-editor__fields">
-                        <label className="field"><span className="field__label">분류</span><input onChange={(event) => updateItem(item.id, { category: event.target.value })} value={item.category} /></label>
-                        <label className="field"><span className="field__label">계산 방식</span><select onChange={(event) => updateItem(item.id, { calculationType: event.target.value as PricingCalculationType })} value={item.calculationType}>{Object.entries(CALCULATION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-                        {item.calculationType !== "fixed" && item.calculationType !== "percentage" ? <label className="field"><span className="field__label">수량</span><div className="suffix-field"><input inputMode="decimal" min="0" onChange={(event) => updateItem(item.id, { quantity: numberFromInput(event.target.value) })} type="number" value={item.quantity} /><span>{item.unit || "단위"}</span></div></label> : null}
-                        {item.calculationType === "fixed" || item.calculationType === "base_plus_quantity" ? <label className="field"><span className="field__label">기본금액</span><div className="money-field"><span>₩</span><input inputMode="numeric" min="0" onChange={(event) => updateItem(item.id, { basePrice: numberFromInput(event.target.value) })} type="number" value={item.basePrice} /></div></label> : null}
-                        {item.calculationType !== "fixed" && item.calculationType !== "percentage" ? <label className="field"><span className="field__label">단가</span><div className="money-field"><span>₩</span><input inputMode="numeric" min="0" onChange={(event) => updateItem(item.id, { unitPrice: numberFromInput(event.target.value) })} type="number" value={item.unitPrice} /></div></label> : null}
-                        {item.calculationType === "percentage" ? <label className="field"><span className="field__label">비율</span><div className="suffix-field"><input inputMode="decimal" min="0" onChange={(event) => updateItem(item.id, { percentage: numberFromInput(event.target.value) })} type="number" value={item.percentage} /><span>%</span></div></label> : null}
+                <div className="quote-category-editor-list">
+                  {itemGroups.map((group, groupIndex) => (
+                    <section
+                      className={`quote-category-editor${draggingCategory === group.category ? " is-dragging" : ""}`}
+                      key={`${group.category}-${groupIndex}`}
+                      onDragOver={(event) => { if (draggingCategory) event.preventDefault(); }}
+                      onDrop={(event) => { event.preventDefault(); if (draggingCategory) moveCategory(draggingCategory, group.category); setDraggingCategory(null); }}
+                    >
+                      <header className="quote-category-editor__header">
+                        <button
+                          aria-label={`${group.category} 분류 순서 이동`}
+                          className="reorder-handle reorder-handle--category"
+                          draggable
+                          onDragEnd={() => setDraggingCategory(null)}
+                          onDragStart={(event) => { setDraggingCategory(group.category); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", group.category); }}
+                          type="button"
+                        ><GripIcon size={17} /></button>
+                        <div><span>분류 {String(groupIndex + 1).padStart(2, "0")}</span><strong>{group.category}</strong><small>{group.items.length}개 항목 · 손잡이를 끌어 분류 순서를 변경할 수 있습니다.</small></div>
+                        <div className="reorder-mobile-controls">
+                          <button aria-label="분류 위로 이동" disabled={groupIndex === 0} onClick={() => moveCategoryByOffset(group.category, -1)} type="button"><ArrowUpIcon size={15} /></button>
+                          <button aria-label="분류 아래로 이동" disabled={groupIndex === itemGroups.length - 1} onClick={() => moveCategoryByOffset(group.category, 1)} type="button"><ArrowDownIcon size={15} /></button>
+                        </div>
+                      </header>
+                      <div className="quote-item-editor-list">
+                        {group.items.map((item, groupItemIndex) => {
+                          const globalIndex = totals.items.findIndex((entry) => entry.id === item.id);
+                          return (
+                            <article
+                              className={`quote-item-editor${draggingItemId === item.id ? " is-dragging" : ""}`}
+                              key={item.id}
+                              onDragOver={(event) => { if (draggingItemId) event.preventDefault(); }}
+                              onDrop={(event) => { event.preventDefault(); if (draggingItemId) moveItem(draggingItemId, item.id); setDraggingItemId(null); }}
+                            >
+                              <div className="quote-item-editor__head">
+                                <button
+                                  aria-label={`${item.name} 항목 순서 이동`}
+                                  className="reorder-handle"
+                                  draggable
+                                  onDragEnd={() => setDraggingItemId(null)}
+                                  onDragStart={(event) => { event.stopPropagation(); setDraggingItemId(item.id); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", item.id); }}
+                                  type="button"
+                                ><GripIcon size={16} /></button>
+                                <span>{String(globalIndex + 1).padStart(2, "0")}</span>
+                                <div><input aria-label="항목명" onChange={(event) => updateItem(item.id, { name: event.target.value })} value={item.name} /><small>{item.category || "기타"} · {CALCULATION_LABELS[item.calculationType]}</small></div>
+                                <strong>{formatWon(item.lineTotal)}</strong>
+                                <div className="quote-item-editor__actions">
+                                  <span className="reorder-mobile-controls">
+                                    <button aria-label="항목 위로 이동" disabled={groupItemIndex === 0} onClick={() => moveItemByOffset(item.id, -1)} type="button"><ArrowUpIcon size={14} /></button>
+                                    <button aria-label="항목 아래로 이동" disabled={groupItemIndex === group.items.length - 1} onClick={() => moveItemByOffset(item.id, 1)} type="button"><ArrowDownIcon size={14} /></button>
+                                  </span>
+                                  <button className="inline-danger" onClick={() => removeItem(item.id)} type="button">삭제</button>
+                                </div>
+                              </div>
+                              <div className="quote-item-editor__fields">
+                                <label className="field"><span className="field__label">분류</span><input onChange={(event) => updateItem(item.id, { category: event.target.value })} value={item.category} /></label>
+                                <label className="field"><span className="field__label">계산 방식</span><select onChange={(event) => updateItem(item.id, { calculationType: event.target.value as PricingCalculationType })} value={item.calculationType}>{Object.entries(CALCULATION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                                {item.calculationType !== "fixed" && item.calculationType !== "percentage" ? <label className="field"><span className="field__label">수량</span><div className="suffix-field"><input inputMode="decimal" min="0" onChange={(event) => updateItem(item.id, { quantity: numberFromInput(event.target.value) })} type="number" value={item.quantity} /><span>{item.unit || "단위"}</span></div></label> : null}
+                                {item.calculationType === "fixed" || item.calculationType === "base_plus_quantity" ? <label className="field"><span className="field__label">기본금액</span><div className="money-field"><span>₩</span><input inputMode="numeric" min="0" onChange={(event) => updateItem(item.id, { basePrice: numberFromInput(event.target.value) })} type="number" value={item.basePrice} /></div></label> : null}
+                                {item.calculationType !== "fixed" && item.calculationType !== "percentage" ? <label className="field"><span className="field__label">단가</span><div className="money-field"><span>₩</span><input inputMode="numeric" min="0" onChange={(event) => updateItem(item.id, { unitPrice: numberFromInput(event.target.value) })} type="number" value={item.unitPrice} /></div></label> : null}
+                                {item.calculationType === "percentage" ? <label className="field"><span className="field__label">비율</span><div className="suffix-field"><input inputMode="decimal" min="0" onChange={(event) => updateItem(item.id, { percentage: numberFromInput(event.target.value) })} type="number" value={item.percentage} /><span>%</span></div></label> : null}
+                              </div>
+                            </article>
+                          );
+                        })}
                       </div>
-                    </article>
+                    </section>
                   ))}
                 </div>
                 <button className="quote-add-item" onClick={() => setItems((current) => [...current, newManualItem()])} type="button"><PlusIcon size={16} /> 직접 항목 추가</button>
@@ -480,7 +598,7 @@ export function QuoteWizard({ quoteId }: QuoteWizardProps) {
                 <div className="wizard-section__heading"><p className="eyebrow">05 검토</p><h1>{editingQuote ? "새 버전으로 저장하기 전에 확인하세요." : "저장하기 전에 마지막으로 확인하세요."}</h1><p>{editingQuote ? `저장하면 v${(editingQuote.version ?? 1) + 1}이 생성되고 이전 버전은 기록에 남습니다.` : "견적을 저장하면 고객, 가격, 조건이 현재 값으로 고정됩니다."}</p></div>
                 <div className="quote-review">
                   <div className="quote-review__hero"><div><span>{selectedClient?.companyName || "고객 미선택"}</span><h2>{projectName || "프로젝트명 없음"}</h2><p>{purpose} · {aspectRatio} · {resolution}{deliveryDate ? ` · ${deliveryDate}` : ""}</p></div><strong>{formatWon(totals.total)}</strong></div>
-                  <div className="quote-review__section"><h3>제작 항목</h3>{totals.items.map((item) => <div className="quote-review__row" key={item.id}><span><strong>{item.name}</strong><small>{item.category} · {CALCULATION_LABELS[item.calculationType]}</small></span><b>{formatWon(item.lineTotal)}</b></div>)}</div>
+                  <div className="quote-review__section"><h3>제작 항목</h3><div className="quote-review__groups">{itemGroups.map((group, groupIndex) => <section className="quote-review__group" key={`${group.category}-${groupIndex}`}><header><span>{String(groupIndex + 1).padStart(2, "0")}</span><strong>{group.category}</strong></header><div className="quote-review__group-items">{group.items.map((item) => <div className="quote-review__row" key={item.id}><span><strong>{item.name}</strong><small>{CALCULATION_LABELS[item.calculationType]}</small></span><b>{formatWon(item.lineTotal)}</b></div>)}</div></section>)}</div></div>
                   <div className="quote-review__section"><h3>조건</h3><div className="quote-review__facts"><span>계약금 <b>{terms.depositPercent}%</b></span><span>수정 <b>{terms.revisionCount}회</b></span><span>유효기간 <b>{terms.validDays}일</b></span><span>VAT <b>{vatEnabled ? `${vatRate}%` : "미적용"}</b></span></div></div>
                 </div>
               </section>

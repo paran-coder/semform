@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRightIcon } from "@/components/ui/icons";
+import { ArrowRightIcon, DownloadIcon } from "@/components/ui/icons";
 import { formatWon } from "@/lib/format";
 import { createId } from "@/lib/ids";
+import { createQuoteFile, downloadJsonFile, safeFilename } from "@/lib/storage/backup";
 import { generateQuoteNumber } from "@/lib/quote-number";
 import { deleteRecord, getAllRecords, getRecord, putRecord, STORES } from "@/lib/storage/database";
 import { CALCULATION_LABELS } from "@/types/pricing";
@@ -71,6 +72,12 @@ export function QuoteDetail() {
     router.push("/quotes");
   }
 
+  function exportQuote() {
+    if (!quote) return;
+    const file = createQuoteFile(quote);
+    downloadJsonFile(file, `${quote.quoteNumber}_${safeFilename(quote.projectName)}.quote.json`);
+  }
+
   async function duplicateFrom(payload: QuotePayload) {
     if (!quote || working) return;
     setWorking(true);
@@ -114,6 +121,7 @@ export function QuoteDetail() {
             <Link className="sf-button sf-button--primary sf-button--md" href={`/quotes/${quote.id}/print`}>PDF / 인쇄</Link>
             <Link className="sf-button sf-button--secondary sf-button--md" href={`/quotes/${quote.id}/edit`}>견적 수정</Link>
             <button className="sf-button sf-button--secondary sf-button--md" disabled={working} onClick={() => duplicateFrom(quoteToPayload(quote))} type="button">복제</button>
+            <button className="sf-button sf-button--secondary sf-button--md" onClick={exportQuote} type="button"><DownloadIcon size={15} /> 견적 파일</button>
             <button className="sf-button sf-button--secondary sf-button--md" onClick={toggleFinal} type="button">{quote.status === "final" ? "작성중으로 변경" : "견적 확정"}</button>
             <button className={`sf-button sf-button--secondary sf-button--md${deleteConfirm ? " is-danger-confirm" : ""}`} onClick={removeQuote} type="button">{deleteConfirm ? "삭제 확인" : "삭제"}</button>
           </>}

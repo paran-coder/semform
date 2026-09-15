@@ -102,3 +102,27 @@ export async function deleteRecord(storeName: StoreName, id: IDBValidKey): Promi
     };
   });
 }
+
+
+export async function replaceAllStoreRecords(records: Record<StoreName, unknown[]>): Promise<void> {
+  const db = await openSemformDB();
+  const storeNames = Object.values(STORES);
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeNames, "readwrite");
+    for (const storeName of storeNames) {
+      const store = transaction.objectStore(storeName);
+      store.clear();
+      for (const record of records[storeName] ?? []) store.put(record);
+    }
+    transaction.oncomplete = () => { db.close(); resolve(); };
+    transaction.onerror = () => {
+      db.close();
+      reject(transaction.error ?? new Error("백업 데이터를 복원하지 못했습니다."));
+    };
+    transaction.onabort = () => {
+      db.close();
+      reject(transaction.error ?? new Error("백업 데이터 복원이 중단되었습니다."));
+    };
+  });
+}

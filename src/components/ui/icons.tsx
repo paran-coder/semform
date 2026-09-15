@@ -145,3 +145,37 @@ export function CopyIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+export function DownloadIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M12 4v10M8 10l4 4 4-4M5 19h14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+    </IconBase>
+  );
+}
+
+export function UploadIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M12 15V5M8 9l4-4 4 4M5 19h14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+    </IconBase>
+  );
+}
+
+export function GripIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="8" cy="7" r="1.2" fill="currentColor" /><circle cx="16" cy="7" r="1.2" fill="currentColor" />
+      <circle cx="8" cy="12" r="1.2" fill="currentColor" /><circle cx="16" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="8" cy="17" r="1.2" fill="currentColor" /><circle cx="16" cy="17" r="1.2" fill="currentColor" />
+    </IconBase>
+  );
+}
+
+export function ArrowUpIcon(props: IconProps) {
+  return <IconBase {...props}><path d="M12 19V5M7 10l5-5 5 5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" /></IconBase>;
+}
+
+export function ArrowDownIcon(props: IconProps) {
+  return <IconBase {...props}><path d="M12 5v14M7 14l5 5 5-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" /></IconBase>;
+}
