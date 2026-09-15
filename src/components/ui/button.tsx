@@ -17,11 +17,13 @@ export function Button({
   trailingIcon,
   className = "",
   children,
+  type = "button",
   ...props
 }: ButtonProps) {
   return (
     <button
       className={`sf-button sf-button--${variant} sf-button--${size} ${className}`.trim()}
+      type={type}
       {...props}
     >
       {leadingIcon ? <span className="sf-button__icon">{leadingIcon}</span> : null}

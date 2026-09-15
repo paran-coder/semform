@@ -43,6 +43,11 @@ function detailLine(item: QuoteItem) {
   return `${item.quantity}${item.unit} × ${formatWon(item.unitPrice)}`;
 }
 
+function calculationLine(item: QuoteItem) {
+  if (item.calculationType === "fixed") return "고정금액";
+  return `${CALCULATION_LABELS[item.calculationType]} · ${detailLine(item)}`;
+}
+
 export function QuotePrint() {
   const params = useParams<{ id: string }>();
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -101,7 +106,7 @@ export function QuotePrint() {
         <section className="studio-meta-grid">
           <div><span>발행일</span><strong>{dateLabel(quote.updatedAt)}</strong></div>
           <div><span>견적 유효기간</span><strong>{validUntil(quote.updatedAt, quote.terms.validDays)}</strong></div>
-          <div><span>납품 예정</span><strong>{quote.deliveryDate || "협의"}</strong></div>
+          <div><span>납품 예정</span><strong>{quote.deliveryDate ? dateLabel(quote.deliveryDate) : "협의"}</strong></div>
           <div><span>영상 형식</span><strong>{quote.aspectRatio} · {quote.resolution}</strong></div>
         </section>
 
@@ -112,7 +117,7 @@ export function QuotePrint() {
               <section className="studio-category" key={`${group.category}-${groupIndex}`}>
                 <header><span>{String(groupIndex + 1).padStart(2, "0")}</span><h3>{group.category}</h3></header>
                 <div>
-                  {group.items.map((item) => <div className="studio-line-item" key={item.id}><span><strong>{item.name}</strong><small>{CALCULATION_LABELS[item.calculationType]} · {detailLine(item)}</small></span><b>{formatWon(item.lineTotal)}</b></div>)}
+                  {group.items.map((item) => <div className="studio-line-item" key={item.id}><span><strong>{item.name}</strong><small>{calculationLine(item)}</small></span><b>{formatWon(item.lineTotal)}</b></div>)}
                 </div>
               </section>
             ))}

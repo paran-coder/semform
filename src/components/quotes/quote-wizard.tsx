@@ -500,7 +500,7 @@ export function QuoteWizard({ quoteId }: QuoteWizardProps) {
                   <label className="field"><span className="field__label">납품 예정일</span><input onChange={(event) => setDeliveryDate(event.target.value)} type="date" value={deliveryDate} /></label>
                   <label className="field"><span className="field__label">영상 비율</span><select onChange={(event) => setAspectRatio(event.target.value)} value={aspectRatio}><option>9:16</option><option>16:9</option><option>1:1</option><option>4:5</option><option>기타</option></select></label>
                   <label className="field"><span className="field__label">해상도</span><select onChange={(event) => setResolution(event.target.value)} value={resolution}><option>FHD</option><option>4K</option><option>기타</option></select></label>
-                  <label className="field field--span-2"><span className="field__label">고객 요청 / 내부 메모</span><textarea onChange={(event) => setProjectNotes(event.target.value)} placeholder="제작 범위와 특별 요청사항을 적어두세요." rows={5} value={projectNotes} /></label>
+                  <label className="field field--span-2"><span className="field__label">고객 요청 / 견적서 메모</span><textarea onChange={(event) => setProjectNotes(event.target.value)} placeholder="견적서에 표시할 제작 범위와 특별 요청사항을 적어두세요." rows={5} value={projectNotes} /></label>
                 </div>
               </section>
             ) : null}

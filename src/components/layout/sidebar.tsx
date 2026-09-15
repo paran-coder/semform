@@ -23,6 +23,7 @@ export function Sidebar() {
 
       <nav className="sidebar__nav">
         <Link
+          aria-current={isActivePath(pathname, "/quotes/new") ? "page" : undefined}
           className={`sidebar__new-quote${isActivePath(pathname, "/quotes/new") ? " is-active" : ""}`}
           href="/quotes/new"
         >

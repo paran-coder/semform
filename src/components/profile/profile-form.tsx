@@ -168,7 +168,7 @@ export function ProfileForm() {
     <form className="profile-form" id="profile-form" onSubmit={handleSubmit} ref={formRef}>
       <div className="profile-local-note">
         <strong>로컬 저장</strong>
-        <span>입력한 정보와 로고는 서버로 전송하지 않고 현재 브라우저의 IndexedDB에 저장합니다.</span>
+        <span>입력한 정보와 로고는 서버로 전송하지 않고 현재 브라우저에만 저장합니다.</span>
       </div>
 
       <section className="profile-section profile-section--brand" aria-labelledby="profile-brand-title">

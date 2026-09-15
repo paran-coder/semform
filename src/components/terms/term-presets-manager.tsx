@@ -207,7 +207,7 @@ export function TermPresetsManager() {
                   </section>
 
                   <section className="editor-section terms-section-new">
-                    <div className="editor-section__heading"><span>04</span><div><h3>권리와 납품</h3><p>고객에게 보이는 견적서의 TERMS 영역에 들어갈 문구입니다.</p></div></div>
+                    <div className="editor-section__heading"><span>04</span><div><h3>권리와 납품</h3><p>고객에게 보이는 견적서의 거래 조건 영역에 들어갈 문구입니다.</p></div></div>
                     <div className="form-grid"><label className="field"><span className="field__label">상업적 이용 조건</span><textarea rows={4} onChange={(event) => updateDraft("usageTerms", event.target.value)} placeholder="예: 브랜드 공식 SNS 및 디지털 광고 사용 포함" value={draft.usageTerms} /></label><label className="field"><span className="field__label">저작권 / 권리 조건</span><textarea rows={4} onChange={(event) => updateDraft("copyrightTerms", event.target.value)} value={draft.copyrightTerms} /></label><label className="field"><span className="field__label">원본 / 프로젝트 파일</span><textarea rows={4} onChange={(event) => updateDraft("sourceFileTerms", event.target.value)} value={draft.sourceFileTerms} /></label><label className="check-control check-control--line"><input checked={draft.portfolioAllowed} onChange={(event) => updateDraft("portfolioAllowed", event.target.checked)} type="checkbox" /><span>완성본을 포트폴리오에 공개할 수 있음</span></label></div>
                   </section>
 

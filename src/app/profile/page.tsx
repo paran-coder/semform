@@ -8,7 +8,7 @@ export default function ProfilePage() {
       <PageFrame
         eyebrow="내 정보"
         title="브랜드와 연락 정보를 저장하세요."
-        description="여기에 저장한 정보는 이 브라우저의 IndexedDB에만 보관되며, 이후 견적서에 자동으로 불러옵니다."
+        description="여기에 저장한 정보는 현재 브라우저에만 보관되며, 이후 견적서에 자동으로 불러옵니다."
       >
         <ProfileForm />
       </PageFrame>

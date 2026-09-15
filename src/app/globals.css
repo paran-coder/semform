@@ -3840,3 +3840,179 @@ a {
   .dashboard-backup-reminder { grid-template-columns: 38px minmax(0, 1fr); margin-bottom: 22px; }
   .dashboard-backup-reminder > a { grid-column: 2; justify-self: start; }
 }
+
+/* v1.0.0-rc.1 — release candidate visual polish */
+:root {
+  --sf-copy: #596273;
+  --sf-copy-soft: #707a8a;
+}
+
+/* Keep explanatory copy comfortably readable while preserving compact metadata. */
+body { font-size: 14px; }
+.eyebrow { font-size: 12px; line-height: 1.45; }
+.standard-heading__copy > p:last-child:not(.eyebrow),
+.dashboard-hero__copy > p:last-child,
+.profile-section__heading > p,
+.profile-section__heading > div + p,
+.preset-onboarding > p:not(.eyebrow),
+.entity-onboarding > p:not(.eyebrow),
+.preset-editor__header > div > span,
+.entity-editor__header > div > span,
+.editor-section__heading p,
+.wizard-section__heading > p:not(.eyebrow),
+.wizard-section__heading > div > p:not(.eyebrow),
+.data-manager__heading > div:first-child > p:last-child,
+.settings-card__copy > span {
+  color: var(--sf-copy);
+}
+.standard-heading__copy > p:last-child:not(.eyebrow) { font-size: 15px; line-height: 1.72; }
+.profile-section__heading > p,
+.profile-section__heading > div + p { font-size: 13px; line-height: 1.7; }
+
+/* Navigation */
+.sidebar__item { font-size: 14px; }
+.sidebar__foot { font-size: 12px; }
+.mobile-nav__item { font-size: 11px; font-weight: 600; }
+.mobile-nav__create { box-shadow: 0 5px 16px rgba(24, 26, 32, 0.12); }
+.standard-topbar__version,
+.dashboard-topbar__date { font-size: 12px; }
+
+/* Forms and controls */
+.field__label { font-size: 13px; }
+.field input,
+.field select,
+.field textarea,
+.entity-search input,
+.quotes-search input { font-size: 14px; }
+.field input,
+.field select { min-height: 42px; }
+.field textarea { min-height: 104px; }
+.field-hint { color: var(--sf-copy); font-size: 12.5px; }
+.save-status { font-size: 12.5px; }
+.check-control { font-size: 13px; }
+.money-field > span,
+.suffix-field > span { font-size: 13px; }
+
+/* Preset and client workspaces */
+.preset-toolbar__stats,
+.entity-toolbar__summary { font-size: 13px; }
+.preset-list-item__title { font-size: 13.5px; }
+.preset-list-item__meta { color: var(--sf-copy); font-size: 12px; line-height: 1.5; }
+.preset-editor__header h2,
+.entity-editor__header h2 { font-size: 24px; }
+.preset-editor__header > div > span,
+.entity-editor__header > div > span { font-size: 13px; line-height: 1.62; }
+.editor-section__heading > span { font-size: 11px; }
+.editor-section__heading h3 { font-size: 17px; }
+.editor-section__heading p { font-size: 13px; line-height: 1.65; }
+.pricing-item-editor__summary strong { font-size: 14px; }
+.pricing-item-editor__summary span { color: var(--sf-copy); font-size: 12px; }
+.pricing-item-editor__price { font-size: 13.5px; }
+.entity-list-item__copy strong { font-size: 13.5px; }
+.entity-list-item__copy span,
+.entity-list-item__count { color: var(--sf-copy); font-size: 12px; }
+.entity-list-empty { font-size: 12.5px; }
+.client-quote-row strong,
+.client-quote-row b { font-size: 13px; }
+.client-quote-row small { color: var(--sf-copy); font-size: 11.5px; }
+.client-quote-empty { color: var(--sf-copy); font-size: 12.5px; }
+
+/* Quote wizard */
+.quote-wizard__topbar a { font-size: 13px; }
+.quote-wizard__status { font-size: 12.5px; }
+.quote-reset-button { font-size: 12px; }
+.quote-step { font-size: 12.5px; }
+.quote-step > span { font-size: 11px; }
+.wizard-section__heading > p:not(.eyebrow),
+.wizard-section__heading > div > p:not(.eyebrow) { color: var(--sf-copy); font-size: 14px; line-height: 1.72; }
+.selected-client-card span,
+.selected-client-card small { color: var(--sf-copy); font-size: 12px; }
+.wizard-preset-select { font-size: 12.5px; }
+.quote-category-editor__header > div:nth-child(2) > span { font-size: 11px; }
+.quote-category-editor__header small { color: var(--sf-copy); font-size: 12px; }
+.quote-item-editor__head small { color: var(--sf-copy); font-size: 12px; }
+.quote-terms-card > small { color: var(--sf-copy); font-size: 12px; }
+.quote-review__hero p { color: var(--sf-copy); font-size: 12.5px; }
+.quote-review__section h3 { font-size: 12px; }
+.quote-review__row small { color: var(--sf-copy); font-size: 12px; }
+.quote-review__facts span { color: var(--sf-copy); font-size: 12px; }
+.quote-summary__breakdown span,
+.quote-summary__meta span { font-size: 12px; }
+
+/* Quote list */
+.quotes-table__head { font-size: 11.5px; }
+.quotes-table__row { font-size: 12.5px; }
+.quotes-table__project strong { font-size: 14px; }
+.quotes-table__project small { color: var(--sf-copy); font-size: 11.5px; }
+.quotes-table__row > b { font-size: 13.5px; }
+.quote-status { min-height: 26px; padding-inline: 9px; font-size: 10.5px; }
+.quotes-no-result,
+.quotes-loading,
+.quotes-toolbar__message { font-size: 12.5px; }
+
+/* Quote detail — strong hierarchy from project to category to item to explanation. */
+.quote-detail-meta span { font-size: 11.5px; }
+.quote-detail-meta strong { font-size: 14px; }
+.quote-detail-block__header > span { color: var(--sf-copy); font-size: 13px; line-height: 1.65; }
+.quote-detail-category > header > span,
+.quote-term-groups__title > span { font-size: 11px; }
+.quote-detail-category header p { color: var(--sf-copy); font-size: 12.5px; line-height: 1.55; }
+.quote-detail-item strong { font-size: 15px; }
+.quote-detail-item small { color: var(--sf-copy); font-size: 12.5px; line-height: 1.55; }
+.quote-detail-copy p { color: var(--sf-copy); font-size: 13px; }
+.quote-detail-copy strong { font-size: 13px; }
+.quote-detail-notes > p { color: var(--sf-copy); font-size: 14px; }
+.quote-version-row span { color: var(--sf-copy); font-size: 12px; }
+
+/* Dashboard list metadata should remain secondary, but not microscopic. */
+.quote-row__meta,
+.quote-row__date { font-size: 11.5px; }
+.quote-row__client,
+.quote-row__project { font-size: 14px; }
+.quote-row__amount { font-size: 15px; }
+.summary-item__label { font-size: 12.5px; }
+
+/* Settings / backup */
+.data-manager__counts span,
+.backup-status__label { font-size: 12px; }
+.backup-status p,
+.data-danger-zone p { color: var(--sf-copy); font-size: 13px; }
+.backup-status__badge,
+.data-danger-zone__label { font-size: 11.5px; }
+.dashboard-backup-reminder p { color: var(--sf-copy); font-size: 12.5px; }
+
+/* More reliable hover/focus feedback without adding visual noise. */
+.sidebar__item,
+.tablet-rail__item,
+.mobile-nav__item,
+.entity-list-item,
+.preset-list-item,
+.quote-row,
+.client-quote-row,
+.quotes-table__row,
+.settings-card,
+.data-action-card {
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+@media (max-width: 767px) {
+  .sf-button--sm,
+  .sf-button--md,
+  .sf-button--lg { min-height: 44px; }
+  .standard-heading__copy > p:last-child:not(.eyebrow) { font-size: 14px; }
+  .profile-section__heading > p,
+  .profile-section__heading > div + p { font-size: 13px; }
+  .mobile-nav__item { min-height: 56px; font-size: 11px; }
+  .mobile-nav__create { width: 50px; height: 50px; }
+  .preset-list-item__title,
+  .entity-list-item__copy strong { font-size: 13px; }
+  .preset-list-item__meta,
+  .entity-list-item__copy span,
+  .entity-list-item__count { font-size: 11.5px; }
+  .quote-step { font-size: 12px; }
+  .quote-detail-category header p,
+  .quote-detail-item small,
+  .quote-detail-copy p { font-size: 12.5px; }
+  .quote-row__meta,
+  .quote-row__date { font-size: 11px; }
+}

@@ -39,6 +39,11 @@ function lineDescription(item: QuoteItem) {
   return `${item.quantity}${item.unit} × ${formatWon(item.unitPrice)}`;
 }
 
+function calculationLine(item: QuoteItem) {
+  if (item.calculationType === "fixed") return "고정금액";
+  return `${CALCULATION_LABELS[item.calculationType]} · ${lineDescription(item)}`;
+}
+
 export function QuoteDetail() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -118,7 +123,7 @@ export function QuoteDetail() {
 
         <div className="quote-detail-actions">
           {historical ? <button className="sf-button sf-button--primary sf-button--md" disabled={working} onClick={() => duplicateFrom(historical.payload)} type="button">이 버전으로 복제</button> : <>
-            <Link className="sf-button sf-button--primary sf-button--md" href={`/quotes/${quote.id}/print`}>PDF / 인쇄</Link>
+            <Link className="sf-button sf-button--primary sf-button--md" href={`/quotes/${quote.id}/print`}>PDF 저장 / 인쇄</Link>
             <Link className="sf-button sf-button--secondary sf-button--md" href={`/quotes/${quote.id}/edit`}>견적 수정</Link>
             <button className="sf-button sf-button--secondary sf-button--md" disabled={working} onClick={() => duplicateFrom(quoteToPayload(quote))} type="button">복제</button>
             <button className="sf-button sf-button--secondary sf-button--md" onClick={exportQuote} type="button"><DownloadIcon size={15} /> 견적 파일</button>
@@ -130,7 +135,7 @@ export function QuoteDetail() {
         <section className="quote-detail-meta" aria-label="프로젝트 기본 정보">
           <div><span>견적번호</span><strong>{quote.quoteNumber}</strong></div>
           <div><span>버전 / 저장일</span><strong>v{visibleVersion} · {dateLabel(visibleDate)}</strong></div>
-          <div><span>납품 예정</span><strong>{data.deliveryDate || "미정"}</strong></div>
+          <div><span>납품 예정</span><strong>{data.deliveryDate ? dateLabel(data.deliveryDate) : "미정"}</strong></div>
           <div><span>영상 형식</span><strong>{data.aspectRatio} · {data.resolution}</strong></div>
         </section>
 
@@ -141,7 +146,7 @@ export function QuoteDetail() {
               <section className="quote-detail-category" key={`${group.category}-${groupIndex}`}>
                 <header><span>{String(groupIndex + 1).padStart(2, "0")}</span><div><h3>{group.category}</h3><p>{group.items.length}개 항목</p></div></header>
                 <div className="quote-detail-category__items">
-                  {group.items.map((item) => <div className="quote-detail-item" key={item.id}><div><strong>{item.name}</strong><small>{CALCULATION_LABELS[item.calculationType]} · {lineDescription(item)}</small></div><b>{formatWon(item.lineTotal)}</b></div>)}
+                  {group.items.map((item) => <div className="quote-detail-item" key={item.id}><div><strong>{item.name}</strong><small>{calculationLine(item)}</small></div><b>{formatWon(item.lineTotal)}</b></div>)}
                 </div>
               </section>
             ))}
@@ -160,7 +165,7 @@ export function QuoteDetail() {
         {data.projectNotes ? <section className="quote-detail-block quote-detail-notes"><header className="quote-detail-block__header"><div><p className="eyebrow">메모</p><h2>프로젝트 요청사항</h2></div></header><p>{data.projectNotes}</p></section> : null}
 
         <section className="quote-version-section">
-          <header className="quote-detail-block__header"><div><p className="eyebrow">Version History</p><h2>견적 버전</h2></div><span>수정할 때마다 이전 금액과 조건을 보관합니다.</span></header>
+          <header className="quote-detail-block__header"><div><p className="eyebrow">버전 기록</p><h2>견적 버전</h2></div><span>수정할 때마다 이전 금액과 조건을 보관합니다.</span></header>
           <div className="quote-version-list">
             <div className={`quote-version-row${viewingVersion === null ? " is-active" : ""}`}><div><strong>v{currentVersion}</strong><span>현재 버전 · {dateLabel(quote.updatedAt)}</span></div><b>{formatWon(quote.total)}</b><button onClick={() => setViewingVersion(null)} type="button">보기</button></div>
             {history.map((version) => <div className={`quote-version-row${viewingVersion === version.version ? " is-active" : ""}`} key={`${version.version}-${version.savedAt}`}><div><strong>v{version.version}</strong><span>{dateLabel(version.savedAt)}</span></div><b>{formatWon(version.payload.total)}</b><button onClick={() => setViewingVersion(version.version)} type="button">보기</button></div>)}
